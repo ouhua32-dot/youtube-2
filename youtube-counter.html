@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube 视频卡片统计</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@300;400;700&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #222230;
+    --accent: #00e5ff;
+    --accent2: #ff4081;
+    --text: #e0e0f0;
+    --muted: #555570;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(0,229,255,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(255,64,129,0.05) 0%, transparent 50%);
+  }
+
+  .container { max-width: 560px; width: 100%; }
+
+  header {
+    margin-bottom: 32px;
+    border-left: 3px solid var(--accent);
+    padding-left: 18px;
+  }
+
+  header .label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  header h1 { font-size: 24px; font-weight: 700; color: #fff; }
+  header p { margin-top: 6px; font-size: 12px; color: var(--muted); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 16px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .form-group:last-of-type { margin-bottom: 20px; }
+
+  label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  input, select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    padding: 12px 16px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0,229,255,0.08);
+  }
+
+  select option { background: #111; }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--accent);
+    color: #000;
+    text-transform: uppercase;
+  }
+
+  .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
+
+  .result-box {
+    display: none;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    margin-top: 16px;
+  }
+
+  .result-box.visible { display: block; }
+
+  .result-box .big-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+
+  .result-box .desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .result-box .meta {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    line-height: 2;
+    text-align: left;
+  }
+
+  .status {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-top: 14px;
+    display: none;
+  }
+
+  .status.loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,229,255,0.06);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--accent);
+  }
+
+  .status.error {
+    display: block;
+    background: rgba(255,64,129,0.06);
+    border: 1px solid rgba(255,64,129,0.2);
+    color: var(--accent2);
+  }
+
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    animation: pulse 1s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.7); }
+  }
+
+  .tag {
+    display: inline-block;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="label">YouTube Counter</div>
+    <h1>视频卡片总数统计</h1>
+    <p>翻页累计，统计真实视频卡片数（非估算值）</p>
+  </header>
+
+  <div class="card">
+    <div class="form-group">
+      <label>YouTube Data API Key</label>
+      <input type="password" id="apiKey" placeholder="AIzaSy..." />
+    </div>
+    <div class="form-group">
+      <label>搜索关键词</label>
+      <input type="text" id="query" placeholder="例：bambu lab 3dプリンター" value="bambu lab 3dプリンター" />
+    </div>
+    <div class="form-group">
+      <label>时间范围（可选）</label>
+      <select id="timeRange">
+        <option value="">不限时间（全部）</option>
+        <option value="week">最近 1 周</option>
+        <option value="month">最近 1 个月</option>
+        <option value="3month">最近 3 个月</option>
+        <option value="6month">最近 6 个月</option>
+        <option value="year">最近 1 年</option>
+        <option value="2year">最近 2 年</option>
+        <option value="3year">最近 3 年</option>
+      </select>
+    </div>
+    <button class="btn" id="runBtn" onclick="run()">开始统计</button>
+    <div class="status" id="status"><div class="dot"></div><span id="statusText">统计中...</span></div>
+
+    <div class="result-box" id="resultBox">
+      <div class="big-num" id="resultNum">0</div>
+      <div class="desc">实际视频卡片总数</div>
+      <div class="meta" id="resultMeta"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function getTimeRange(key) {
+  if (!key) return { after: '', before: '' };
+  const now = new Date();
+  const before = now.toISOString();
+  const after = new Date(now);
+  if (key === 'week') after.setDate(now.getDate() - 7);
+  else if (key === 'month') after.setMonth(now.getMonth() - 1);
+  else if (key === '3month') after.setMonth(now.getMonth() - 3);
+  else if (key === '6month') after.setMonth(now.getMonth() - 6);
+  else if (key === 'year') after.setFullYear(now.getFullYear() - 1);
+  else if (key === '2year') after.setFullYear(now.getFullYear() - 2);
+  else if (key === '3year') after.setFullYear(now.getFullYear() - 3);
+  return { after: after.toISOString(), before };
+}
+
+function showStatus(msg) {
+  const el = document.getElementById('status');
+  el.className = 'status loading';
+  document.getElementById('statusText').textContent = msg;
+}
+
+function showError(msg) {
+  const el = document.getElementById('status');
+  el.className = 'status error';
+  el.innerHTML = '❌ ' + msg;
+}
+
+function hideStatus() {
+  document.getElementById('status').style.display = 'none';
+}
+
+async function run() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const query = document.getElementById('query').value.trim();
+  const timeKey = document.getElementById('timeRange').value;
+
+  if (!apiKey || !query) {
+    showError('请填写 API Key 和搜索关键词');
+    return;
+  }
+
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  document.getElementById('resultBox').classList.remove('visible');
+  showStatus('正在查询第 1 页...');
+
+  const { after, before } = getTimeRange(timeKey);
+
+  let total = 0;
+  let pageToken = '';
+  let page = 1;
+
+  try {
+    do {
+      let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=50&relevanceLanguage=ja`;
+      if (after) url += `&publishedAfter=${after}`;
+      if (before && after) url += `&publishedBefore=${before}`;
+      if (pageToken) url += `&pageToken=${pageToken}`;
+      url += `&key=${apiKey}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error.message);
+
+      const count = (data.items || []).length;
+      total += count;
+      pageToken = data.nextPageToken || '';
+      page++;
+
+      if (pageToken) {
+        showStatus(`正在查询第 ${page} 页，已累计 ${total} 个视频...`);
+        await new Promise(r => setTimeout(r, 300));
+      }
+    } while (pageToken);
+
+    hideStatus();
+
+    // Show result
+    document.getElementById('resultNum').textContent = total.toLocaleString();
+
+    const timeLabels = {
+      '': '全部时间',
+      'week': '最近 1 周',
+      'month': '最近 1 个月',
+      '3month': '最近 3 个月',
+      '6month': '最近 6 个月',
+      'year': '最近 1 年',
+      '2year': '最近 2 年',
+      '3year': '最近 3 年',
+    };
+
+    document.getElementById('resultMeta').innerHTML = `
+      <span class="tag">关键词</span> ${query}<br>
+      <span class="tag">时间范围</span> ${timeLabels[timeKey]}<br>
+      <span class="tag">语言筛选</span> 日语（relevanceLanguage=ja）<br>
+      <span class="tag">共翻页</span> ${page - 1} 页 × 最多50条
+    `;
+
+    document.getElementById('resultBox').classList.add('visible');
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
